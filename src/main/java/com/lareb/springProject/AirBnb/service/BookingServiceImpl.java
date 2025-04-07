@@ -11,6 +11,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.awt.print.Book;
@@ -86,6 +87,12 @@ public class BookingServiceImpl implements  BookingService{
     public BookingDto addGuests(Long bookingId, List<GuestDto> guestDtoList) {
         log.info("Adding guests for booking with id: {}", bookingId);
         Booking booking = bookingRepository.findById(bookingId).orElseThrow(()-> new ResourceNotFoundException("Booking not found with booking Id: {}"+ bookingId));
+        User user = guestDtoList.get(0).getUser();
+        User authenticatedUser =getCurrentUser();
+        if(!user.getId().equals(authenticatedUser.getId())){
+            throw new IllegalStateException("You are not authorized to add guests to this booking");
+        }
+        
         if(hasBookingExpired(booking)){
             throw new IllegalStateException("Booking has expired");
         }
@@ -94,7 +101,7 @@ public class BookingServiceImpl implements  BookingService{
         }
         for(GuestDto guestDto : guestDtoList){
             Guest guest = modelMapper.map(guestDto, Guest.class);
-            guest.setUser(getCurrentUser());
+            guest.setUser(authenticatedUser);
             guest = guestRepository.save(guest);
             booking.getGuests().add(guest);
         }
@@ -108,8 +115,8 @@ public class BookingServiceImpl implements  BookingService{
     }
 
     public User getCurrentUser() {
+        return (User)SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         // Fetch the dummy user from the database
-        return userRepository.findById(1L)
-                .orElseThrow(() -> new ResourceNotFoundException("Dummy user not found with ID: 1"));
+       
     }
 }

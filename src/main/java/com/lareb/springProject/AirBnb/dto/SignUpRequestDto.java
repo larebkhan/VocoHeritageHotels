@@ -3,10 +3,10 @@ package com.lareb.springProject.AirBnb.dto;
 import lombok.Data;
 
 @Data
-public class UserDto {
+public class SignUpRequestDto {
 
-    private Long id;
-    private String email;
-    private String name;
     
+    private String email;
+    private String password;
+    private String name;
 }

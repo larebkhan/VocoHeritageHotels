@@ -48,7 +48,7 @@ public class HotelServiceImpl implements HotelService {
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID" + hotelId));
 
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if(!hotel.getOwner().getId().equals(user.getId())){
+        if (!hotel.getOwner().getId().equals(user.getId())) {
             throw new ResourceNotFoundException("Hotel not found with ID" + hotelId);
         }
         return modelMapper.map(hotel, HotelDto.class);
@@ -59,6 +59,11 @@ public class HotelServiceImpl implements HotelService {
         log.info("Updating the information of a Hotel that has Id : {}", hotelId);
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found for Id :" + hotelId));
+
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!hotel.getOwner().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Hotel not found with ID" + hotelId);
+        }
         modelMapper.map(hotelDto, hotel);
         hotel.setId(hotelId);
         hotel = hotelRepository.save(hotel);
@@ -72,10 +77,17 @@ public class HotelServiceImpl implements HotelService {
         Hotel hotel = hotelRepository
                 .findById(hotelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID" + hotelId));
+
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!hotel.getOwner().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Hotel not found with ID" + hotelId);
+        }
+
         for (Room room : hotel.getRooms()) {
             inventoryService.deleteAllInventories(room);
             roomRepository.deleteById(room.getId());
         }
+
         hotelRepository.deleteById(hotelId);
         // for(Room room: hotel.getRooms()){
         // inventoryService.deleteAllInventories(room);
@@ -90,6 +102,11 @@ public class HotelServiceImpl implements HotelService {
         Hotel hotel = hotelRepository
                 .findById(hotelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID" + hotelId));
+
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!hotel.getOwner().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Hotel not found with ID" + hotelId);
+        }
 
         hotel.setActive(true);
         // assuming only doing once

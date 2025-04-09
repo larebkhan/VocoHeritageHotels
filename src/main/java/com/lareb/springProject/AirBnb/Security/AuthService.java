@@ -15,6 +15,7 @@ import com.lareb.springProject.AirBnb.dto.SignUpRequestDto;
 import com.lareb.springProject.AirBnb.dto.UserDto;
 import com.lareb.springProject.AirBnb.entity.User;
 import com.lareb.springProject.AirBnb.entity.enums.Role;
+import com.lareb.springProject.AirBnb.exception.ResourceNotFoundException;
 import com.lareb.springProject.AirBnb.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,12 @@ public class AuthService {
         return arr;
 
     }
+ 
+    public String refreshToken(String refreshToken){
 
+        Long id = jwtService.getUserIdFromToken(refreshToken);
+        User user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return jwtService.generateAccessToken(user);
+    }
     
 }

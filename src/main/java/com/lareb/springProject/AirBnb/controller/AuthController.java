@@ -1,7 +1,10 @@
 package com.lareb.springProject.AirBnb.controller;
 
+import java.util.Arrays;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,5 +43,17 @@ public class AuthController {
         cookie.setHttpOnly(true); 
         httpServletResponse.addCookie(cookie);
         return ResponseEntity.ok(new LoginResponseDto(tokens[0]));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponseDto> refresh(HttpServletRequest request) {
+        String refreshToken = Arrays.stream(request.getCookies())
+                .filter(cookie -> "refreshToken".equals(cookie.getName()))
+                .findFirst()
+                .map(Cookie::getValue)
+                .orElseThrow(()-> new AuthenticationServiceException("Refresh Token not found inside Cookie "));
+
+        String accessToken = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(new LoginResponseDto(accessToken));
     }
 }

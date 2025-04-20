@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -55,4 +56,19 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
             @Param("endDate") LocalDate endDate,
             @Param("roomsCount") Integer roomsCount
     );
+
+
+    @Modifying
+    @Query("""
+                UPDATE Inventory i
+                SET i.reservedCount = i.reservedCount + :numberOfRooms
+                WHERE i.room.id = :roomId
+                  AND i.date BETWEEN :startDate AND :endDate
+                  AND (i.totalCount - i.bookedCount - i.reservedCount) >= :numberOfRooms
+                  AND i.closed = false""")
+
+    void initBooking(@Param("roomId") Long roomId,
+                     @Param("startDate") LocalDate startDate,
+                     @Param("endDate") LocalDate endDate,
+                     @Param("numberOfRooms") int numberOfRooms);
 }

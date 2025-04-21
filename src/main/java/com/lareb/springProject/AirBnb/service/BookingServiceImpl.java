@@ -1,7 +1,6 @@
 package com.lareb.springProject.AirBnb.service;
 
 import com.lareb.springProject.AirBnb.Strategy.PricingService;
-import com.lareb.springProject.AirBnb.Strategy.PricingStrategy;
 import com.lareb.springProject.AirBnb.dto.BookingDto;
 import com.lareb.springProject.AirBnb.dto.BookingRequest;
 import com.lareb.springProject.AirBnb.dto.GuestDto;
@@ -18,11 +17,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.awt.print.Book;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Service
@@ -47,46 +47,67 @@ public class BookingServiceImpl implements  BookingService{
     @Override
     @Transactional
     public BookingDto initialiseBooking(BookingRequest bookingRequest) {
-        log.info("Initializing booking for hotel: {} , room: {}, date: {}-{}",
+        log.info("Initializing booking for hotel: {} , rooms: {}, date: {}-{}",
                 bookingRequest.getHotelId(),
-                bookingRequest.getRoomId(),
+                bookingRequest.getRooms(),
                 bookingRequest.getCheckInDate(),
                 bookingRequest.getCheckOutDate());
-        Hotel hotel = hotelRepository.findById(bookingRequest.getHotelId()).orElseThrow(()-> new ResourceNotFoundException("Hotel not found with ID: {} "+ bookingRequest.getHotelId()));
-        Room room = roomRepository.findById(bookingRequest.getRoomId()).orElseThrow(()-> new ResourceNotFoundException("Room not found for ID: {}"+ bookingRequest.getRoomId()));
-        List<Inventory> inventoryList = inventoryRepository
-                .findAndLockAvailableInventory(
-                        bookingRequest.getRoomId(),
-                        bookingRequest.getCheckInDate(),
-                        bookingRequest.getCheckOutDate(),
-                        bookingRequest.getRoomsCount()
-        );
-        long daysCount = ChronoUnit.DAYS.between(bookingRequest.getCheckInDate(),bookingRequest.getCheckOutDate())+1;
-        if(inventoryList.size() != daysCount){
-            throw new IllegalStateException("Room is not available anymore");
-        }
 
-        inventoryRepository.initBooking(room.getId(), bookingRequest.getCheckInDate(),
-                bookingRequest.getCheckOutDate(), bookingRequest.getRoomsCount());
-
-
-        BigDecimal priceForOneRoom = pricingService.calculateTotalPrice(inventoryList);
-        BigDecimal totalPrice = priceForOneRoom.multiply(BigDecimal.valueOf(bookingRequest.getRoomsCount()));
+        Hotel hotel = hotelRepository.findById(bookingRequest.getHotelId())
+                .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID: " + bookingRequest.getHotelId()));
 
         Booking booking = Booking.builder()
                 .bookingStatus(BookingStatus.RESERVED)
                 .hotel(hotel)
-                .room(room)
                 .checkInDate(bookingRequest.getCheckInDate())
                 .checkOutDate(bookingRequest.getCheckOutDate())
                 .user(getCurrentUser())
-                .roomsCount(bookingRequest.getRoomsCount())
-                .amount(totalPrice)
                 .build();
 
-        booking = bookingRepository.save(booking);
-        return modelMapper.map(booking, BookingDto.class);
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        int totalRooms = 0;
+        Set<BookedRoom> bookedRooms = new HashSet<>();
 
+        for (BookingRequest.RoomBookingRequest r : bookingRequest.getRooms()) {
+            Room room = roomRepository.findById(r.getRoomId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Room not found for ID: " + r.getRoomId()));
+
+            List<Inventory> inventoryList = inventoryRepository.findAndLockAvailableInventory(
+                    r.getRoomId(),
+                    bookingRequest.getCheckInDate(),
+                    bookingRequest.getCheckOutDate(),
+                    r.getRoomsCount()
+            );
+
+            long daysCount = ChronoUnit.DAYS.between(bookingRequest.getCheckInDate(), bookingRequest.getCheckOutDate()) + 1;
+
+            if (inventoryList.size() != daysCount) {
+                throw new IllegalStateException("Room is not available anymore");
+            }
+
+            inventoryRepository.initBooking(room.getId(), bookingRequest.getCheckInDate(), bookingRequest.getCheckOutDate(), r.getRoomsCount());
+
+            BigDecimal priceForOneRoom = pricingService.calculateTotalPrice(inventoryList);
+            BigDecimal totalPrice = priceForOneRoom.multiply(BigDecimal.valueOf(r.getRoomsCount()));
+            grandTotal = grandTotal.add(totalPrice);
+
+            BookedRoom bookedRoom = BookedRoom.builder()
+                    .room(room)
+                    .roomsCount(r.getRoomsCount())
+                    .pricePerRoom(priceForOneRoom)
+                    .totalPrice(totalPrice)
+                    .booking(booking)
+                    .build();
+            totalRooms += r.getRoomsCount();
+            bookedRooms.add(bookedRoom);
+        }
+
+        booking.setBookedRooms(bookedRooms);
+        booking.setAmount(grandTotal);
+        booking.setTotalRoomsCount(totalRooms);
+        bookingRepository.save(booking);
+
+        return  modelMapper.map(booking, BookingDto.class);
     }
 
     @Override

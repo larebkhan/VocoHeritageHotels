@@ -29,16 +29,19 @@ public class Booking {
     @JoinColumn(name = "hotel_id", nullable = false)
     private Hotel hotel;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn()
-    private Room room;
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn()
+//
+
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<BookedRoom> bookedRooms;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(nullable = false)
-    private Integer roomsCount;
+    private Integer totalRoomsCount;
 
     @Column(nullable = false)
     private LocalDate checkInDate;
@@ -59,13 +62,10 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus bookingStatus;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "booking_guest",
-            joinColumns = @JoinColumn(name = "booking_id"),
-            inverseJoinColumns = @JoinColumn(name = "guest_id")
-    )
+
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Guest> guests;
+
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;

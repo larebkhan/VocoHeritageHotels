@@ -11,6 +11,7 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -19,11 +20,15 @@ import java.util.Set;
 public class BookingDto {
 
     private Long id;
-    private Integer roomsCount;
+    private Integer totalRoomsCount;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private LocalDateTime createdAt;//if a user refreshes the page the timer can keep on updating in the front end
     private LocalDateTime updatedAt;
     private BookingStatus bookingStatus;
     private Set<GuestDto> guests;
+    private Set<BookedRoomDto> bookedRooms;
+    private BigDecimal amount;
+
+
 }

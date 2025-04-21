@@ -5,7 +5,6 @@ import com.lareb.springProject.AirBnb.dto.BookingRequest;
 import com.lareb.springProject.AirBnb.dto.GuestDto;
 
 import java.util.List;
-import java.util.Map;
 
 public interface BookingService {
     BookingDto initialiseBooking(BookingRequest bookingRequest);

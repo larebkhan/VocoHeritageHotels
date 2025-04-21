@@ -2,6 +2,7 @@ package com.lareb.springProject.AirBnb.controller;
 
 import com.lareb.springProject.AirBnb.dto.BookingDto;
 import com.lareb.springProject.AirBnb.dto.BookingRequest;
+import com.lareb.springProject.AirBnb.dto.GroupBookingDto;
 import com.lareb.springProject.AirBnb.dto.GuestDto;
 import com.lareb.springProject.AirBnb.service.BookingService;
 import lombok.RequiredArgsConstructor;

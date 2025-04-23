@@ -1,5 +1,7 @@
 package com.lareb.springProject.AirBnb.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lareb.springProject.AirBnb.Strategy.PricingService;
 import com.lareb.springProject.AirBnb.dto.BookingDto;
 import com.lareb.springProject.AirBnb.dto.BookingRequest;
@@ -9,6 +11,12 @@ import com.lareb.springProject.AirBnb.entity.enums.BookingStatus;
 import com.lareb.springProject.AirBnb.exception.ResourceNotFoundException;
 import com.lareb.springProject.AirBnb.exception.UnAuthorizedException;
 import com.lareb.springProject.AirBnb.repository.*;
+import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
+import com.stripe.model.Refund;
+import com.stripe.model.checkout.Session;
+import com.stripe.param.RefundCreateParams;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -139,17 +147,12 @@ public class BookingServiceImpl implements  BookingService{
     }
 
     @Override
+    @Transactional
     public String initiatePayment(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId).orElseThrow(() ->
                 new ResourceNotFoundException("booking not found with booking id "+ bookingId));
 
         User authenticatedUser = getCurrentUser();
-        System.out.println("Authenticated user: " + authenticatedUser.getId() + " (" + authenticatedUser.getId().getClass().getName() + ")");
-        System.out.println("Booking user: " + booking.getUser().getId() + " (" + booking.getUser().getId().getClass().getName() + ")");
-        System.out.println("User equals booking user: " + authenticatedUser.getId().equals(booking.getUser().getId()));
-        System.out.println("Using toString comparison: " + authenticatedUser.getId().toString().equals(booking.getUser().getId().toString()));
-
-
         if(!authenticatedUser.getId().equals(booking.getUser().getId())){
             throw new UnAuthorizedException("Booking does not belong to the current user");
         }
@@ -163,6 +166,113 @@ public class BookingServiceImpl implements  BookingService{
         return sessionUrl;
     }
 
+    @Override
+    @Transactional
+    public void capturePayment(Event event) {
+        log.info("Stripe Event Received: {}", event.getType());
+        if("checkout.session.completed".equals(event.getType())){
+            log.info("Handling checkout.session.completed event: {}", event.getId());
+            Session session =retrieveSessionFromEvent(event);
+
+
+            if(session == null){
+                log.warn("Deserialized object for session is empty!");
+                return;
+            }
+
+            String sessionId = session.getId();
+            Booking booking =
+                    bookingRepository.findByPaymentSessionId(sessionId).orElseThrow(()-> new ResourceNotFoundException("Booking not found for session id : "+ sessionId));
+            booking.setBookingStatus(BookingStatus.CONFIRMED);
+            bookingRepository.save(booking);
+            for (BookedRoom r :booking.getBookedRooms()) {
+                inventoryRepository.findAndLockReservedInventory(r.getRoom().getId(),
+                        booking.getCheckInDate(),
+                        booking.getCheckOutDate(),
+                        r.getRoomsCount());
+
+                inventoryRepository.confirmBooking(r.getRoom().getId(),
+                        booking.getCheckInDate(),
+                        booking.getCheckOutDate(),
+                        r.getRoomsCount());
+            }
+            log.info("Successfully confirmed booking for booking ID : {} ",booking.getId());
+
+        }else{
+            log.warn("Unhandled event type: {}", event.getType());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void cancelBooking(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow(() ->
+                new ResourceNotFoundException("booking not found with booking id "+ bookingId));
+
+        User authenticatedUser = getCurrentUser();
+        if(!authenticatedUser.getId().equals(booking.getUser().getId())){
+            throw new UnAuthorizedException("Booking does not belong to the current user");
+        }
+        if(booking.getBookingStatus()!=BookingStatus.CONFIRMED){
+            throw new IllegalStateException("Only confirmed booking can be cancelled");
+        }
+        booking.setBookingStatus(BookingStatus.CANCELLED);
+        bookingRepository.save(booking);
+        for (BookedRoom r :booking.getBookedRooms()) {
+            inventoryRepository.findAndLockReservedInventory(r.getRoom().getId(),
+                    booking.getCheckInDate(),
+                    booking.getCheckOutDate(),
+                    r.getRoomsCount());
+
+            inventoryRepository.cancelBooking(r.getRoom().getId(),
+                    booking.getCheckInDate(),
+                    booking.getCheckOutDate(),
+                    r.getRoomsCount());
+        }
+        //handle the refund
+        try {
+            Session session = Session.retrieve(booking.getPaymentSessionId());
+            RefundCreateParams refundParams = RefundCreateParams.builder()
+                    .setPaymentIntent(session.getPaymentIntent())
+                    .build();
+            Refund.create(refundParams);
+        } catch (StripeException e) {
+            throw new RuntimeException(e);
+        }
+
+
+
+    }
+
+    @Override
+    public String getBookingStatus(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow(() ->
+                new ResourceNotFoundException("booking not found with booking id "+ bookingId));
+
+        User authenticatedUser = getCurrentUser();
+        if(!authenticatedUser.getId().equals(booking.getUser().getId())){
+            throw new UnAuthorizedException("Booking does not belong to the current user");
+        }
+
+        return booking.getBookingStatus().name();
+    }
+
+    private Session retrieveSessionFromEvent(Event event) {
+        try {
+            EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+            if (deserializer.getObject().isPresent()) {
+                return (Session) deserializer.getObject().get();
+            } else {
+                String rawJson = event.getData().getObject().toJson();
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = objectMapper.readTree(rawJson);
+                String sessionId = jsonNode.get("id").asText();
+                return Session.retrieve(sessionId);
+            }
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Failed to retrieve session data");
+        }
+    }
     public boolean hasBookingExpired(Booking booking){
         return booking.getCreatedAt().plusMinutes(10).isBefore(LocalDateTime.now());
     }

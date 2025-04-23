@@ -26,8 +26,9 @@ public class Guest {
 
     private Integer age;
 
-
-
+    @ManyToOne
+    @JoinColumn(name = "booking_id")
+    private Booking booking;
 
 
 }

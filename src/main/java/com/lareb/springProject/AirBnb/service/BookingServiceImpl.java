@@ -22,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.expression.AccessException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +33,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.lareb.springProject.AirBnb.util.AppUtils.getCurrentUser;
 
 
 @Service
@@ -257,6 +262,17 @@ public class BookingServiceImpl implements  BookingService{
         return booking.getBookingStatus().name();
     }
 
+    @Override
+    public List<BookingDto> getAllBookingsByHotelId(Long hotelId) {
+        Hotel hotel = hotelRepository.findById(hotelId).orElseThrow(()-> new ResourceNotFoundException("Hotel not found with hotel Id: "+hotelId));
+        User user = getCurrentUser();
+        log.info("Getting all bookings for the hotel with id : "+ hotelId);
+        if(!user.equals(hotel.getOwner())) throw new AccessDeniedException("You are not the owner of hotel with id : "+ hotelId);
+        List<Booking> bookings = bookingRepository.findByHotel(hotel);
+        return  bookings.stream().map((element) -> modelMapper.map(element, BookingDto.class)).collect(Collectors.toList());
+
+    }
+
     private Session retrieveSessionFromEvent(Event event) {
         try {
             EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
@@ -277,9 +293,5 @@ public class BookingServiceImpl implements  BookingService{
         return booking.getCreatedAt().plusMinutes(10).isBefore(LocalDateTime.now());
     }
 
-    public User getCurrentUser() {
-        return (User)SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // Fetch the dummy user from the database
-       
-    }
+
 }

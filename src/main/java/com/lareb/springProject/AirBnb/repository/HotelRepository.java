@@ -12,4 +12,5 @@ public interface HotelRepository  extends JpaRepository<Hotel, Long> {
 
 
     List<Hotel> findByOwner(User user);
+
 }

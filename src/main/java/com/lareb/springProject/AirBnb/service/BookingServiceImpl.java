@@ -6,6 +6,7 @@ import com.lareb.springProject.AirBnb.Strategy.PricingService;
 import com.lareb.springProject.AirBnb.dto.BookingDto;
 import com.lareb.springProject.AirBnb.dto.BookingRequest;
 import com.lareb.springProject.AirBnb.dto.GuestDto;
+import com.lareb.springProject.AirBnb.dto.HotelReportDto;
 import com.lareb.springProject.AirBnb.entity.*;
 import com.lareb.springProject.AirBnb.entity.enums.BookingStatus;
 import com.lareb.springProject.AirBnb.exception.ResourceNotFoundException;
@@ -27,8 +28,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.awt.print.Book;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
@@ -271,6 +276,40 @@ public class BookingServiceImpl implements  BookingService{
         List<Booking> bookings = bookingRepository.findByHotel(hotel);
         return  bookings.stream().map((element) -> modelMapper.map(element, BookingDto.class)).collect(Collectors.toList());
 
+    }
+
+    @Override
+    public HotelReportDto getHotelReport(Long hotelId, LocalDate startDate, LocalDate endDate) {
+        Hotel hotel = hotelRepository.findById(hotelId).orElseThrow(()-> new ResourceNotFoundException("Hotel not found with hotel Id: "+hotelId));
+        User user = getCurrentUser();
+        log.info("Getting all bookings for the hotel with id : "+ hotelId);
+        if(!user.equals(hotel.getOwner())) throw new AccessDeniedException("You are not the owner of hotel with id : "+ hotelId);
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<Booking> bookings = bookingRepository.findByHotelAndCreatedAtBetween(hotel,startDateTime,endDateTime);
+        Long totalConfirmedBookings = bookings
+                .stream()
+                .filter(booking -> booking.getBookingStatus()==BookingStatus.CONFIRMED)
+                .count();
+        BigDecimal totalRevenueOfConfirmedBookings = bookings.stream()
+                .filter(booking -> booking.getBookingStatus()==BookingStatus.CONFIRMED)
+                .map(Booking::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal avgRevenue = totalConfirmedBookings==0?BigDecimal.ZERO: totalRevenueOfConfirmedBookings.divide(BigDecimal.valueOf(totalConfirmedBookings), RoundingMode.HALF_UP);
+        return new HotelReportDto(totalConfirmedBookings, totalRevenueOfConfirmedBookings, avgRevenue);
+
+
+    }
+
+    @Override
+    public List<BookingDto> getMyBookings() {
+
+        User user = getCurrentUser();
+        List<Booking> bookings =  bookingRepository.findByUser(user);
+        return bookings.stream().map((element) -> modelMapper.map(element, BookingDto.class))
+                .collect(Collectors.toList());
     }
 
     private Session retrieveSessionFromEvent(Event event) {

@@ -2,15 +2,19 @@ package com.lareb.springProject.AirBnb.controller;
 
 import com.lareb.springProject.AirBnb.dto.BookingDto;
 import com.lareb.springProject.AirBnb.dto.HotelDto;
+import com.lareb.springProject.AirBnb.dto.HotelReportDto;
 import com.lareb.springProject.AirBnb.entity.Hotel;
+import com.lareb.springProject.AirBnb.service.BookingService;
 import com.lareb.springProject.AirBnb.service.HotelService;
 import jdk.javadoc.doclet.Reporter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cglib.core.Local;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -20,6 +24,7 @@ import java.util.List;
 public class HotelController {
 
     private final HotelService hotelService;
+    private final BookingService bookingService;
 
     @PostMapping
     public ResponseEntity<HotelDto> createNewHotel(@RequestBody HotelDto hotelDto){
@@ -59,10 +64,19 @@ public class HotelController {
 
     @GetMapping("/{hotelId}/bookings")
     public ResponseEntity<List<BookingDto>> getAllBookingsByHotelId(@PathVariable Long hotelId){
-        return ResponseEntity.ok(hotelService.getAllBookingsByHotelId(hotelId));
+        return ResponseEntity.ok(bookingService.getAllBookingsByHotelId(hotelId));
     }
 
     @GetMapping("/{hotelId}/reports")
-    public ResponseEntity<List<BookingDto>>
+    public ResponseEntity<HotelReportDto> getHotelReport(@PathVariable Long hotelId,
+                                                         @RequestParam(required = false)LocalDate startDate,
+                                                         @RequestParam(required = false) LocalDate endDate){
+        if(startDate==null){
+            startDate = LocalDate.now().minusMonths(1);
+
+        }
+        if(endDate==null) endDate = LocalDate.now();
+        return ResponseEntity.ok(bookingService.getHotelReport(hotelId, startDate,endDate));
+    }
 
 }

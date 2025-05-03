@@ -18,5 +18,4 @@ public interface HotelService {
 
     List<HotelDto> getAllHotels();
 
-    List<BookingDto> getAllBookingsByHotelId(Long hotelId);
 }

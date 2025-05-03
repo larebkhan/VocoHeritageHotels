@@ -15,7 +15,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.lareb.springProject.AirBnb.util.AppUtils.getCurrentUser;
 
 @Service
 @Slf4j
@@ -26,6 +29,7 @@ public class RoomServiceImpl implements RoomService {
     private final ModelMapper modelMapper;
     private final HotelRepository hotelRepository;
     private final InventoryService inventoryService;
+
 
     @Override
     @Transactional
@@ -98,5 +102,24 @@ public class RoomServiceImpl implements RoomService {
         inventoryService.deleteAllInventories(room);
         roomRepository.deleteById(roomId);
 
+    }
+
+    @Override
+    @Transactional
+    public RoomDto updateRoomById(Long roomId, Long hotelId, RoomDto roomDto) {
+        Hotel hotel = hotelRepository
+                .findById(hotelId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hotel not found with ID" + hotelId));
+
+        User user = getCurrentUser();
+        if (!user.equals(hotel.getOwner())) {
+            throw new ResourceNotFoundException("Hotel not found with ID as the user doesnot own it" + hotelId);
+        }
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new ResourceNotFoundException("Room not found with ID" + roomId));
+        modelMapper.map(roomDto, room);
+        room.setId(roomId);
+        room = roomRepository.save(room);
+
+        return modelMapper.map(room,RoomDto.class);
     }
 }

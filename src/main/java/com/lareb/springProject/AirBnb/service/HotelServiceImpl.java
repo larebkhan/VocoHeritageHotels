@@ -148,16 +148,6 @@ public class HotelServiceImpl implements HotelService {
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public List<BookingDto> getAllBookingsByHotelId(Long hotelId) {
-        Hotel hotel = hotelRepository.findById(hotelId).orElseThrow(()-> new ResourceNotFoundException("Hotel doesnot exst with hotel id :" + hotelId));
-        User user = hotel.getOwner();
-        if(!user.equals(getCurrentUser())){
-            throw new AccessDeniedException("You dont own the hotel so no access to its booking");
-        }
-        List<Booking> bookings = bookingRepository.findByHotel(hotel);
-        return bookings.stream().map((element) -> modelMapper.map(element, BookingDto.class)).collect(Collectors.toList());
-    }
 
 
 

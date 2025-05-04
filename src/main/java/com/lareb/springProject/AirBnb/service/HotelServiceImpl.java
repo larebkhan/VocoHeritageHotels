@@ -1,32 +1,43 @@
 package com.lareb.springProject.AirBnb.service;
 
+import com.lareb.springProject.AirBnb.dto.BookingDto;
 import com.lareb.springProject.AirBnb.dto.HotelDto;
 import com.lareb.springProject.AirBnb.dto.HotelInfoDto;
 import com.lareb.springProject.AirBnb.dto.RoomDto;
+import com.lareb.springProject.AirBnb.entity.Booking;
 import com.lareb.springProject.AirBnb.entity.Hotel;
 import com.lareb.springProject.AirBnb.entity.Room;
 import com.lareb.springProject.AirBnb.entity.User;
 import com.lareb.springProject.AirBnb.exception.ResourceNotFoundException;
+import com.lareb.springProject.AirBnb.repository.BookingRepository;
 import com.lareb.springProject.AirBnb.repository.HotelRepository;
 import com.lareb.springProject.AirBnb.repository.RoomRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.lareb.springProject.AirBnb.util.AppUtils.getCurrentUser;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class HotelServiceImpl implements HotelService {
+    private final BookingRepository bookingRepository;
 
     private final HotelRepository hotelRepository;
     private final ModelMapper modelMapper;
     private final InventoryService inventoryService;
     private final RoomRepository roomRepository;
+    private final BookingService bookingService;
 
     @Override
     public HotelDto createNewHotel(HotelDto hotelDto) {
@@ -125,6 +136,22 @@ public class HotelServiceImpl implements HotelService {
 
         return new HotelInfoDto(modelMapper.map(hotel, HotelDto.class), rooms);
     }
+
+    @Override
+    public List<HotelDto> getAllHotels() {
+        User user = getCurrentUser();
+        log.info("Getting all hotels for the admin user with id {}", user.getId());
+
+
+        List<Hotel> hotel  = hotelRepository.findByOwner(user);
+        return hotel.stream().map((element) -> modelMapper.map(element, HotelDto.class))
+                .collect(Collectors.toList());
+    }
+
+
+
+
+
 }
 
 // if you try to create an inventory fot the days or roomms that already has an

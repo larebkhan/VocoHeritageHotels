@@ -1,5 +1,6 @@
 package com.lareb.springProject.AirBnb.entity;
 
+import com.lareb.springProject.AirBnb.entity.enums.Gender;
 import com.lareb.springProject.AirBnb.entity.enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -25,7 +27,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 @NoArgsConstructor
 @Builder
 @Table(name = "app_user")
-public class User implements UserDetails{
+public class  User implements UserDetails{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +40,13 @@ public class User implements UserDetails{
     private String password; //encode it
 
     private String  name;
+
+    private LocalDate dateOfBirth;
+
+    @Enumerated(EnumType.STRING)
+    private Gender gender;
+
+
 
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
